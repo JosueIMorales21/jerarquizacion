@@ -33,8 +33,6 @@ public class JerarquizacionApp {
         loadConfig(); // Cargar configuración desde conCfig.properties
         configureLogger(); // Cargar el LOGGER
 
-        // Ruta de la carpeta raíz (REPOSITORIO en tu caso)
-        //String rootFolder = "C:\\Repositorio";
         try {
             // Llamada a la función para buscar archivos .txt en las terminales y realizar copias de seguridad
             File rootFolder = new File(REPOSITORIO_RAIZ);
@@ -196,29 +194,6 @@ public class JerarquizacionApp {
         compressFile(new File(sourceFile), RESPALDO_RUTA, zipPassword);
     }
 
-    /*private static void backupFilesRecursive(File directory, String backupDir, String zipPassword, String terminalName) {
-        File[] files = directory.listFiles();
-
-        if (files != null) {
-            String currentDate = new SimpleDateFormat("yyMMdd").format(new Date());
-            File backupDirectory = new File(backupDir);
-            if (!backupDirectory.exists()) {
-                backupDirectory.mkdirs();
-            }
-            for (File file : files) {
-                if (file.isDirectory()) {
-                    // Llamado para buscar en todo el directorio "REPOSITORIO"
-                    backupFilesRecursive(file, backupDir, zipPassword, terminalName);
-                } else if (file.isFile() && file.getName().toLowerCase().endsWith(".txt")) {
-                    // Comprime el archivo con su contraseña
-                    compressFile(file, backupDir, zipPassword);
-
-                    // Limpia el archivo .txt después de la copia de seguridad
-                    cleanupOldTxtFiles(file.getAbsolutePath(), LIMITE_MESES, terminalName);
-                }
-            }
-        }
-    }*/
     private static void compressFile(File file, String outputDir, String zipPassword) {
         try {
             net.lingala.zip4j.model.ZipParameters parameters = new net.lingala.zip4j.model.ZipParameters();
@@ -245,8 +220,6 @@ public class JerarquizacionApp {
     }
 
     private static String extractTerminalName(String filePath) {
-        // Supongamos que la estructura de la ruta es algo como "C:\REPOSITORIO\1002\700\archivo.txt"
-        // Puedes ajustar esto según la estructura real de tus rutas
 
         // Divide la ruta usando el separador de directorios correspondiente al sistema operativo
         String[] pathSegments = filePath.split("\\\\");
