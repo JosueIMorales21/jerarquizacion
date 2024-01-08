@@ -8,6 +8,8 @@ import static com.palacio.environment.config.ConfigLoader.ZIP_PASSWORD;
 import static com.palacio.environment.config.ConfigLoader.configureLogger;
 import static com.palacio.environment.config.ConfigLoader.loadConfig;
 import static com.palacio.environment.file.CreateZipMaster.createMasterZip;
+import static com.palacio.environment.file.CreatorTools.createTiendasAndTerminalesFolders;
+import static com.palacio.environment.file.CreatorTools.populateTiendasNivel0AndTerminales;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.*;
@@ -16,9 +18,14 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 import net.lingala.zip4j.model.enums.CompressionLevel;
 import net.lingala.zip4j.model.enums.CompressionMethod;
 import net.lingala.zip4j.model.enums.EncryptionMethod;
@@ -28,14 +35,38 @@ public class JerarquizacionApp {
     public static final List<String> createdZipFiles = new ArrayList<>();
 
     private static final Logger logger = Logger.getLogger(JerarquizacionApp.class.getName());
+    public static final Set<String> tiendasNivel0 = new HashSet<>(); // Nuevo arreglo para almacenar nombres de tiendas del nivel 0
+    public static final Map<String, Set<String>> terminalesPorTienda = new HashMap<>();
 
     public static void main(String[] args) {
         loadConfig(); // Cargar configuración desde conCfig.properties
         configureLogger(); // Cargar el LOGGER
 
         try {
-            // Llamada a la función para buscar archivos .txt en las terminales y realizar copias de seguridad
             File rootFolder = new File(REPOSITORIO_RAIZ);
+
+            // Limpia y llena el arreglo tiendasNivel0 antes de realizar la búsqueda y copia de seguridad
+            tiendasNivel0.clear();
+            populateTiendasNivel0AndTerminales(rootFolder);
+
+            // Muestra el contenido del arreglo tiendasNivel0
+            List<String> tiendasNivel0ConInfo = tiendasNivel0.stream()
+                    .filter(terminalesPorTienda::containsKey)
+                    .collect(Collectors.toList());
+            logger.info("Tiendas del Nivel 0: " + tiendasNivel0ConInfo);
+
+            // Muestra las terminales asociadas a cada tienda
+            for (String tienda : tiendasNivel0ConInfo) {
+                Set<String> terminales = terminalesPorTienda.get(tienda);
+                if (terminales != null) {
+                    logger.info("Terminales para la tienda " + tienda + ": " + terminales);
+                }
+            }
+
+            // Crear carpetas en RESPALDO_RUTA para cada tienda del nivel 0
+            createTiendasAndTerminalesFolders(RESPALDO_RUTA);
+
+            // Llamada a la función para buscar archivos .txt en las terminales y realizar copias de seguridad
             searchAndBackupTxtFiles(rootFolder, ZIP_PASSWORD, LIMITE_MESES);
 
             cleanupOldZipFiles(RESPALDO_RUTA);
@@ -70,6 +101,11 @@ public class JerarquizacionApp {
                 if (file.isDirectory()) {
                     // Si es un directorio, llama recursivamente a la función
                     searchAndBackupTxtFiles(file, zipPassword, limiteMeses);
+
+                    // Verifica si la tienda pertenece al nivel 0 y agrega el nombre al arreglo tiendasNivel0
+                    if (tiendasNivel0.contains(file.getName())) {
+                        tiendasNivel0.add(file.getName());
+                    }
                 } else if (file.isFile() && file.getName().toLowerCase().endsWith(".txt")) {
                     // Agrega logs para rastrear el flujo del programa
                     logger.info("Procesando archivo: " + file.getAbsolutePath());
@@ -80,6 +116,11 @@ public class JerarquizacionApp {
                     // Llama a la función de copia de seguridad y limpieza específica para cada terminal
                     backupFiles(file.getAbsolutePath(), zipPassword, 1, 2, terminalName);
                     cleanupOldTxtFiles(file.getAbsolutePath(), limiteMeses, terminalName);
+
+                    // Verifica si la tienda pertenece al nivel 0 y agrega el nombre al arreglo tiendasNivel0
+                    if (tiendasNivel0.contains(terminalName)) {
+                        tiendasNivel0.add(terminalName);
+                    }
                 }
             }
 
