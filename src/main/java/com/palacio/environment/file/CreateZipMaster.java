@@ -1,14 +1,9 @@
 package com.palacio.environment.file;
 
-import com.palacio.environment.main.JerarquizacionApp;
 import static com.palacio.environment.main.JerarquizacionApp.createdZipFiles;
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.FileVisitResult;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.SimpleFileVisitor;
+import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -18,12 +13,11 @@ import net.lingala.zip4j.exception.ZipException;
 import net.lingala.zip4j.model.enums.CompressionLevel;
 import net.lingala.zip4j.model.enums.CompressionMethod;
 
-
 public class CreateZipMaster {
-    
-    private static final Logger logger = Logger.getLogger(JerarquizacionApp.class.getName());
-    
-    public static void createMasterZip(String sourceDir, String backupDir) throws IOException, ZipException {
+
+    private static final Logger logger = Logger.getLogger(CreateZipMaster.class.getName());
+
+    public static void createMasterZipForTerminal(String sourceDir, String backupDir) throws IOException, ZipException {
         File sourceDirectory = new File(sourceDir);
         File backupDirectory = new File(backupDir);
 
@@ -75,8 +69,17 @@ public class CreateZipMaster {
                 }
             });
 
-            // Agregar mensaje de log indicando que el ZIP maestro se generó exitosamente
-            logger.log(Level.INFO, "ZIP maestro de la fecha {0} generado exitosamente.", currentDate);
+            // Agregar mensaje de log indicando que el ZIP maestro se generó exitosamente para la terminal
+            String terminalName = sourceDirectory.getName();
+            if (terminalName.length() >= 4) {
+                String substring = terminalName.substring(10, 5); // Ajusta los índices según sea necesario
+                logger.log(Level.INFO, "ZIP maestro de la fecha {0} para la terminal {1} generado exitosamente.", new Object[]{currentDate, substring});
+            } else {
+                // Usa el nombre completo de la terminal si la longitud es menor de lo esperado
+                logger.log(Level.WARNING, "La longitud de terminalName es menor de lo esperado: {0}", terminalName);
+                logger.log(Level.INFO, "ZIP maestro de la fecha {0} para la terminal {1} generado exitosamente.", new Object[]{currentDate, terminalName});
+            }
+
         } catch (IOException e) {
             // Manejo de excepciones al caminar por el árbol de archivos
             String errorMessage = "Error al caminar por el árbol de archivos";
@@ -85,5 +88,29 @@ public class CreateZipMaster {
             e.printStackTrace();
         }
     }
-    
+
+
+    /*private static void moveMasterZipToTerminalDir(String masterZipFilePath, String terminalName) {
+        try {
+            String currentDate = new SimpleDateFormat("yyyyMMdd").format(new Date());
+            String masterZipFileName = "Respaldo_" + currentDate + ".zip";
+            Path sourcePath = Paths.get(masterZipFilePath);
+            Path destinationPath = Paths.get(RESPALDO_RUTA, terminalName, masterZipFileName);
+
+            // Verifica si la carpeta de destino existe; si no, créala
+            if (!Files.exists(destinationPath.getParent())) {
+                Files.createDirectories(destinationPath.getParent());
+            }
+
+            // Mueve el ZIP maestro a la carpeta de la terminal
+            Files.move(sourcePath, destinationPath, StandardCopyOption.REPLACE_EXISTING);
+            logger.log(Level.INFO, "ZIP maestro movido a la terminal {0} exitosamente.", terminalName);
+        } catch (IOException e) {
+            // Manejo de excepciones al mover el ZIP maestro
+            String errorMessage = "Error al mover el ZIP maestro a la terminal " + terminalName + ": " + e.getMessage();
+            logger.log(Level.SEVERE, errorMessage, e);
+            System.err.println(errorMessage);
+            e.printStackTrace();
+        }
+    }*/
 }
