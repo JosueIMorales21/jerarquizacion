@@ -7,7 +7,6 @@ import static com.palacio.environment.config.ConfigLoader.RESPALDO_RUTA;
 import static com.palacio.environment.config.ConfigLoader.ZIP_PASSWORD;
 import static com.palacio.environment.config.ConfigLoader.configureLogger;
 import static com.palacio.environment.config.ConfigLoader.loadConfig;
-import static com.palacio.environment.file.CreateZipMaster.copyZipToTerminalFolder;
 import static com.palacio.environment.file.CreatorTools.createTiendasAndTerminalesFolders;
 import static com.palacio.environment.file.CreatorTools.populateTiendasNivel0AndTerminales;
 import com.palacio.environment.file.OrganizerApp;
