@@ -327,7 +327,7 @@ public class JerarquizacionApp {
             logger.log(Level.INFO, "Segmentos obtenidos: {0}", Arrays.toString(pathSegments));
 
             // Elige el segmento que contiene el número de la terminal (ajusta según sea necesario)
-            int terminalIndex = 2;  // Puedes ajustar esto según la posición del número de terminal en tu estructura de directorios
+            int terminalIndex = 3;  // Puedes ajustar esto según la posición del número de terminal en tu estructura de directorios
             return pathSegments[terminalIndex];
         } else {
             // En caso de que la ruta no tenga suficientes segmentos, devuelve un valor predeterminado o maneja la situación según sea necesario

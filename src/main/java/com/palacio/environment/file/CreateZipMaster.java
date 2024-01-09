@@ -89,28 +89,4 @@ public class CreateZipMaster {
         }
     }
 
-
-    /*private static void moveMasterZipToTerminalDir(String masterZipFilePath, String terminalName) {
-        try {
-            String currentDate = new SimpleDateFormat("yyyyMMdd").format(new Date());
-            String masterZipFileName = "Respaldo_" + currentDate + ".zip";
-            Path sourcePath = Paths.get(masterZipFilePath);
-            Path destinationPath = Paths.get(RESPALDO_RUTA, terminalName, masterZipFileName);
-
-            // Verifica si la carpeta de destino existe; si no, créala
-            if (!Files.exists(destinationPath.getParent())) {
-                Files.createDirectories(destinationPath.getParent());
-            }
-
-            // Mueve el ZIP maestro a la carpeta de la terminal
-            Files.move(sourcePath, destinationPath, StandardCopyOption.REPLACE_EXISTING);
-            logger.log(Level.INFO, "ZIP maestro movido a la terminal {0} exitosamente.", terminalName);
-        } catch (IOException e) {
-            // Manejo de excepciones al mover el ZIP maestro
-            String errorMessage = "Error al mover el ZIP maestro a la terminal " + terminalName + ": " + e.getMessage();
-            logger.log(Level.SEVERE, errorMessage, e);
-            System.err.println(errorMessage);
-            e.printStackTrace();
-        }
-    }*/
 }
