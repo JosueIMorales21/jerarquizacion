@@ -7,9 +7,12 @@ import static com.palacio.environment.config.ConfigLoader.RESPALDO_RUTA;
 import static com.palacio.environment.config.ConfigLoader.ZIP_PASSWORD;
 import static com.palacio.environment.config.ConfigLoader.configureLogger;
 import static com.palacio.environment.config.ConfigLoader.loadConfig;
-import com.palacio.environment.file.CreateZipMaster;
+import static com.palacio.environment.file.CreateZipMaster.copyZipToTerminalFolder;
 import static com.palacio.environment.file.CreatorTools.createTiendasAndTerminalesFolders;
 import static com.palacio.environment.file.CreatorTools.populateTiendasNivel0AndTerminales;
+import com.palacio.environment.file.OrganizerApp;
+import static com.palacio.environment.file.OrganizerApp.deleteOriginalZipFiles;
+import com.palacio.environment.file.TiendaTerminales;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.*;
@@ -23,6 +26,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -42,6 +46,14 @@ public class JerarquizacionApp {
     public static void main(String[] args) {
         loadConfig(); // Cargar configuración desde conCfig.properties
         configureLogger(); // Cargar el LOGGER
+
+        List<TiendaTerminales> listaTiendasTerminales = new ArrayList<>();
+
+        for (Map.Entry<String, Set<String>> entry : terminalesPorTienda.entrySet()) {
+            String tienda = entry.getKey();
+            Set<String> terminales = entry.getValue();
+            listaTiendasTerminales.add(new TiendaTerminales(tienda, terminales));
+        }
 
         try {
             File rootFolder = new File(REPOSITORIO_RAIZ);
@@ -69,9 +81,32 @@ public class JerarquizacionApp {
                 Set<String> terminales = terminalesPorTienda.get(tienda);
                 if (terminales != null) {
                     for (String terminal : terminales) {
-                        // Crea el archivo ZIP maestro para cada terminal
-                        CreateZipMaster.createMasterZipForTerminal(RESPALDO_RUTA + File.separator + tienda + File.separator + terminal,
-                                RESPALDO_RUTA + File.separator + tienda + File.separator + terminal);
+                        organizeZipFiles(); // Llama a la función para organizar los archivos ZIP
+
+                        // Construye la ruta de origen y destino
+                        String extractedTerminalNumber = terminal.length() >= 3 ? terminal.substring(terminal.length() - 3) : "";
+                        String sourceFilePath = Paths.get(RESPALDO_RUTA, "temp", extractedTerminalNumber).toString();
+                        String destinationFolderPath = Paths.get(RESPALDO_RUTA, tienda, terminal).toString();
+
+                        try {
+                            // Crea la carpeta de la terminal si no existe
+                            Files.createDirectories(Paths.get(destinationFolderPath));
+
+                            // Mueve los archivos ZIP a la carpeta de la terminal
+                            Files.walk(Paths.get(sourceFilePath))
+                                    .filter(Files::isRegularFile)
+                                    .forEach(zipFile -> {
+                                        try {
+                                            Files.move(zipFile, Paths.get(destinationFolderPath, zipFile.getFileName().toString()), StandardCopyOption.REPLACE_EXISTING);
+                                            logger.log(Level.INFO, "Archivo ZIP {0} movido a la carpeta de la terminal {1}", new Object[]{zipFile.getFileName(), terminal});
+                                        } catch (IOException e) {
+                                            logger.log(Level.SEVERE, "Error al mover el archivo ZIP a la carpeta de la terminal", e);
+                                        }
+                                    });
+
+                        } catch (IOException e) {
+                            logger.log(Level.SEVERE, "Error al organizar archivos ZIP en la carpeta de la terminal", e);
+                        }
                     }
                 }
             }
@@ -86,49 +121,76 @@ public class JerarquizacionApp {
 
             // Itera sobre los archivos ZIP creados y organízalos en las carpetas de las terminales
             for (String zipFileName : createdZipFiles) {
-                // Verifica si la longitud del nombre del archivo ZIP es suficiente para extraer 3 dígitos
                 if (zipFileName.length() >= 3) {
-
-                    // Agrega un log para imprimir el nombre del archivo ZIP
                     logger.log(Level.INFO, "Procesando archivo ZIP: {0}", zipFileName);
-
-                    // Extrae los últimos 3 dígitos del nombre del archivo ZIP
-                    String terminalNumber = zipFileName.replaceAll("[^\\d]", "");
-                    terminalNumber = terminalNumber.length() >= 3
+                    final String terminalNumber = zipFileName.replaceAll("[^\\d]", "");
+                    final String extractedTerminalNumber = terminalNumber.length() >= 3
                             ? terminalNumber.substring(terminalNumber.length() - 3) : "";
-                    
-                    final String finalTerminalNumber = terminalNumber;
 
-                    // Verifica si la terminal existe en el conjunto de terminales del nivel 0
-                    if (terminalesPorTienda.values().stream().anyMatch(terminales -> terminales.contains(finalTerminalNumber))) {
-                        // Resto del código...
+                    // Busca la carpeta de la terminal en TODAS las tiendas y niveles
+                    Optional<TiendaTerminales> tiendaTerminalesOptional = listaTiendasTerminales.stream()
+                            .filter(tt -> tt.getTerminales().contains(extractedTerminalNumber))
+                            .findFirst();
 
-                        // Mueve el archivo ZIP a la carpeta correspondiente a la terminal en RESPALDO
-                        String sourceFilePath = Paths.get(RESPALDO_RUTA, zipFileName).toString();
-                        String destinationFolderPath = Paths.get(RESPALDO_RUTA, "TERMINAL_" + terminalNumber).toString();
-                        String destinationFilePath = Paths.get(destinationFolderPath, zipFileName).toString();
+                    if (tiendaTerminalesOptional.isPresent()) {
+                        TiendaTerminales tiendaTerminales = tiendaTerminalesOptional.get();
+                        String terminalFolder = tiendaTerminales.getTienda();
 
-                        try {
-                            // Crea la carpeta de la terminal si no existe
-                            Files.createDirectories(Paths.get(destinationFolderPath));
+                        // Obtén la ruta de la terminal correspondiente
+                        String terminalPath = Paths.get(RESPALDO_RUTA, terminalFolder, extractedTerminalNumber).toString();
 
-                            // Mueve el archivo ZIP a la carpeta de la terminal
-                            Files.move(Paths.get(sourceFilePath), Paths.get(destinationFilePath), StandardCopyOption.REPLACE_EXISTING);
-                            logger.log(Level.INFO, "Archivo ZIP {0} movido a la carpeta de la terminal {1}", new Object[]{zipFileName, terminalNumber});
-                        } catch (IOException e) {
-                            logger.log(Level.SEVERE, "Error al mover el archivo ZIP a la carpeta de la terminal", e);
-                        }
+                        // Copia el archivo ZIP a la carpeta de la terminal
+                        copyZipToTerminalFolder(zipFileName, terminalPath);
                     } else {
-                        logger.log(Level.WARNING, "No se encontró una terminal asociada al archivo ZIP {0}", zipFileName);
+                        logger.log(Level.WARNING, "No se encontró una carpeta asociada a la terminal del archivo ZIP {0}", zipFileName);
                     }
                 } else {
-                    // Manejar la situación donde zipFileName es demasiado corto
                     logger.log(Level.WARNING, "El nombre del archivo ZIP es demasiado corto para extraer el número de terminal: {0}", zipFileName);
                 }
             }
 
         } catch (IOException e) {
             e.printStackTrace();
+        }
+
+        OrganizerApp.organizeZipFiles();
+
+        deleteOriginalZipFiles();
+    }
+
+    private static void organizeZipFiles() {
+        for (String zipFileName : createdZipFiles) {
+            if (zipFileName.length() >= 3) {
+                logger.log(Level.INFO, "Procesando archivo ZIP: {0}", zipFileName);
+                final String terminalNumber = zipFileName.replaceAll("[^\\d]", "");
+                final String extractedTerminalNumber = terminalNumber.length() >= 3
+                        ? terminalNumber.substring(terminalNumber.length() - 3) : "";
+
+                // Busca la carpeta de la terminal en TODAS las carpetas y niveles
+                try {
+                    Files.walk(Paths.get(RESPALDO_RUTA))
+                            .filter(Files::isDirectory)
+                            .filter(path -> path.getFileName().toString().endsWith(extractedTerminalNumber))
+                            .findFirst()
+                            .ifPresent(terminalPath -> {
+                                // Copia el archivo ZIP a la carpeta de la terminal
+                                copyZipToTerminalFolder(zipFileName, terminalPath.toString());
+                                logger.log(Level.INFO, "Archivo ZIP {0} copiado a la carpeta de la terminal {1}", new Object[]{zipFileName, terminalPath});
+                            });
+                } catch (IOException e) {
+                    logger.log(Level.SEVERE, "Error al organizar el archivo ZIP en la carpeta de la terminal", e);
+                }
+            } else {
+                logger.log(Level.WARNING, "El nombre del archivo ZIP es demasiado corto para extraer el número de terminal: {0}", zipFileName);
+            }
+        }
+    }
+
+    private static void copyZipToTerminalFolder(String zipFileName, String destinationFolderPath) {
+        try {
+            Files.copy(Paths.get(RESPALDO_RUTA, zipFileName), Paths.get(destinationFolderPath, zipFileName), StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            logger.log(Level.SEVERE, "Error al copiar el archivo ZIP a la carpeta de la terminal", e);
         }
     }
 

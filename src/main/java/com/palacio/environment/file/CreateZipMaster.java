@@ -1,5 +1,6 @@
 package com.palacio.environment.file;
 
+import static com.palacio.environment.config.ConfigLoader.RESPALDO_RUTA;
 import static com.palacio.environment.main.JerarquizacionApp.createdZipFiles;
 import java.io.File;
 import java.io.IOException;
@@ -86,6 +87,23 @@ public class CreateZipMaster {
             logger.log(Level.SEVERE, errorMessage, e);
             System.err.println(errorMessage);
             e.printStackTrace();
+        }
+    }
+
+    public static void copyZipToTerminalFolder(String zipFileName, String terminalPath) {
+        String sourceFilePath = Paths.get(RESPALDO_RUTA, zipFileName).toString();
+        String destinationFolderPath = Paths.get(terminalPath).toString();
+        String destinationFilePath = Paths.get(destinationFolderPath, zipFileName).toString();
+
+        try {
+            // Crea la carpeta de la terminal si no existe
+            Files.createDirectories(Paths.get(destinationFolderPath));
+
+            // Copia el archivo ZIP a la carpeta de la terminal
+            Files.copy(Paths.get(sourceFilePath), Paths.get(destinationFilePath), StandardCopyOption.REPLACE_EXISTING);
+            logger.log(Level.INFO, "Archivo ZIP {0} copiado a la carpeta de la terminal {1}", new Object[]{zipFileName, terminalPath});
+        } catch (IOException e) {
+            logger.log(Level.SEVERE, "Error al copiar el archivo ZIP a la carpeta de la terminal", e);
         }
     }
 
