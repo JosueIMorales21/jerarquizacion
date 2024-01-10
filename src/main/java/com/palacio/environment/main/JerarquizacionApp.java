@@ -25,7 +25,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -75,40 +74,6 @@ public class JerarquizacionApp {
                 }
             }
 
-            // Itera sobre las tiendas del nivel 0 y crea un archivo ZIP maestro para cada conjunto de terminales
-            for (String tienda : tiendasNivel0ConInfo) {
-                Set<String> terminales = terminalesPorTienda.get(tienda);
-                if (terminales != null) {
-                    for (String terminal : terminales) {
-
-                        // Construye la ruta de origen y destino
-                        String extractedTerminalNumber = terminal.length() >= 3 ? terminal.substring(terminal.length() - 3) : "";
-                        String sourceFilePath = Paths.get(RESPALDO_RUTA, "temp", extractedTerminalNumber).toString();
-                        String destinationFolderPath = Paths.get(RESPALDO_RUTA, tienda, terminal).toString();
-
-                        try {
-                            // Crea la carpeta de la terminal si no existe
-                            Files.createDirectories(Paths.get(destinationFolderPath));
-
-                            // Mueve los archivos ZIP a la carpeta de la terminal
-                            Files.walk(Paths.get(sourceFilePath))
-                                    .filter(Files::isRegularFile)
-                                    .forEach(zipFile -> {
-                                        try {
-                                            Files.move(zipFile, Paths.get(destinationFolderPath, zipFile.getFileName().toString()), StandardCopyOption.REPLACE_EXISTING);
-                                            logger.log(Level.INFO, "Archivo ZIP {0} movido a la carpeta de la terminal {1}", new Object[]{zipFile.getFileName(), terminal});
-                                        } catch (IOException e) {
-                                            logger.log(Level.SEVERE, "Error al mover el archivo ZIP a la carpeta de la terminal", e);
-                                        }
-                                    });
-
-                        } catch (IOException e) {
-                            //logger.log(Level.SEVERE, "Error al organizar archivos ZIP en la carpeta de la terminal", e);
-                        }
-                    }
-                }
-            }
-
             // Crear carpetas en RESPALDO_RUTA para cada tienda del nivel 0
             createTiendasAndTerminalesFolders(RESPALDO_RUTA);
 
@@ -118,43 +83,21 @@ public class JerarquizacionApp {
             cleanupOldZipFiles(RESPALDO_RUTA);
 
             // Itera sobre los archivos ZIP creados y organízalos en las carpetas de las terminales
-            for (String zipFileName : createdZipFiles) {
-                if (zipFileName.length() >= 3) {
-                    logger.log(Level.INFO, "Procesando archivo ZIP: {0}", zipFileName);
-                    final String terminalNumber = zipFileName.replaceAll("[^\\d]", "");
-                    final String extractedTerminalNumber = terminalNumber.length() >= 3
-                            ? terminalNumber.substring(terminalNumber.length() - 3) : "";
-
-                    // Busca la carpeta de la terminal en TODAS las tiendas y niveles
-                    Optional<TiendaTerminales> tiendaTerminalesOptional = listaTiendasTerminales.stream()
-                            .filter(tt -> tt.getTerminales().contains(extractedTerminalNumber))
-                            .findFirst();
-
-                    if (tiendaTerminalesOptional.isPresent()) {
-                        TiendaTerminales tiendaTerminales = tiendaTerminalesOptional.get();
-                        String terminalFolder = tiendaTerminales.getTienda();
-
-                        // Obtén la ruta de la terminal correspondiente
-                        String terminalPath = Paths.get(RESPALDO_RUTA, terminalFolder, extractedTerminalNumber).toString();
-
-                    } else {
-                        //logger.log(Level.WARNING, "No se encontró una carpeta asociada a la terminal del archivo ZIP {0}", zipFileName);
-                    }
-                } else {
-                    logger.log(Level.WARNING, "El nombre del archivo ZIP es demasiado corto para extraer el número de terminal: {0}", zipFileName);
-                }
-            }
-
         } catch (IOException e) {
             e.printStackTrace();
         }
 
         String backupDir = RESPALDO_RUTA;
+        String directoryPath = REPOSITORIO_RAIZ;
+        int monthsOld = LIMITE_MESES;
+
         createMasterZipsForTerminals(backupDir);
 
         OrganizerApp.organizeZipFiles(backupDir);
-        
+
         OrganizerApp.deleteOriginalZipFiles();
+
+        cleanupOldTxtFiles(directoryPath, monthsOld);
     }
 
     public static void searchAndBackupTxtFiles(File directory, String zipPassword, int limiteMeses) throws IOException {
@@ -196,8 +139,8 @@ public class JerarquizacionApp {
 
                     // Llama a la función de copia de seguridad y limpieza específica para cada terminal
                     backupFiles(file.getAbsolutePath(), ZIP_PASSWORD, 1, 2, terminalName, RESPALDO_RUTA, 1);
-                    cleanupOldTxtFiles(file.getAbsolutePath(), limiteMeses, terminalName);
 
+                    //cleanupOldTxtFiles(file.getAbsolutePath(), limiteMeses, terminalName);
                     // Verifica si la tienda pertenece al nivel 0 y agrega el nombre al arreglo tiendasNivel0
                     if (tiendasNivel0.contains(terminalName)) {
                         tiendasNivel0.add(terminalName);
@@ -259,8 +202,8 @@ public class JerarquizacionApp {
         }
     }
 
-    private static void cleanupOldTxtFiles(String filePath, int monthsOld, String terminalName) {
-        Path start = Paths.get(filePath).getParent();  // Obtiene la ruta del directorio del archivo
+    private static void cleanupOldTxtFiles(String directoryPath, int monthsOld) throws IOException {
+        Path start = Paths.get(directoryPath);
 
         try {
             Files.walkFileTree(start, new SimpleFileVisitor<Path>() {
@@ -273,24 +216,15 @@ public class JerarquizacionApp {
                         long monthsAgo = currentTime - (monthsOld * 30L * 24L * 60L * 60L * 1000L); // Convierte meses a milisegundos
 
                         if (lastModifiedTime < monthsAgo) {
-                            // Extrae el nombre de la terminal de la ruta del archivo
-                            String terminalOfFile = extractTerminalName(file.toString());
-
-                            // Compara el nombre de la terminal del archivo con el nombre de la terminal actual
-                            if (terminalOfFile.equals(terminalName)) {
-                                // Agrega un log para verificar qué archivos se están eliminando
+                            // Agrega un log para verificar qué archivos se están eliminando
+                            logger.info("Eliminando archivo TXT: " + file);
+                            try {
+                                Files.delete(file);
+                                // Registra el mensaje en el log
                                 logger.info("Eliminando archivo TXT: " + file);
-                                try {
-                                    Files.delete(file);
-                                    // Registra el mensaje en el log
-                                    logger.info("Eliminando archivo TXT: " + file);
-                                } catch (IOException e) {
-                                    // Maneja los errores al intentar eliminar el archivo
-                                    logger.log(Level.SEVERE, "Error al eliminar archivo TXT: " + file, e);
-                                }
-                            } else {
-                                // Agrega un log para archivos que no cumplen con los criterios de limpieza
-                                logger.info("Archivo TXT no eliminado (no pertenece a la terminal actual): " + file);
+                            } catch (IOException e) {
+                                // Maneja los errores al intentar eliminar el archivo
+                                logger.log(Level.SEVERE, "Error al eliminar archivo TXT: " + file, e);
                             }
                         }
                     }

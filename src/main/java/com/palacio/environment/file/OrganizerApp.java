@@ -5,7 +5,6 @@ import com.palacio.environment.main.JerarquizacionApp;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.*;
-import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -41,7 +40,7 @@ public class OrganizerApp {
         }
     }
 
-    public static String extractTerminalNumberFromMasterZip(String masterZipFileName) {
+    private static String extractTerminalNumberFromMasterZip(String masterZipFileName) {
         // Implementa la lógica para extraer el número de la terminal del nombre del ZIP maestro
         // Puedes usar expresiones regulares u otras técnicas según el formato del nombre
         // En este ejemplo, se asume que el número de terminal está al final del nombre antes de la extensión .zip
