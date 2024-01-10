@@ -7,10 +7,12 @@ import static com.palacio.environment.config.ConfigLoader.RESPALDO_RUTA;
 import static com.palacio.environment.config.ConfigLoader.ZIP_PASSWORD;
 import static com.palacio.environment.config.ConfigLoader.configureLogger;
 import static com.palacio.environment.config.ConfigLoader.loadConfig;
+import com.palacio.environment.file.CreateZipMaster;
+import static com.palacio.environment.file.CreateZipMaster.createMasterZipsForTerminals;
 import static com.palacio.environment.file.CreatorTools.createTiendasAndTerminalesFolders;
 import static com.palacio.environment.file.CreatorTools.populateTiendasNivel0AndTerminales;
-import com.palacio.environment.file.OrganizerApp;
-import static com.palacio.environment.file.OrganizerApp.deleteOriginalZipFiles;
+import static com.palacio.environment.file.OrganizerApp.copyZipToTerminalFolder;
+import static com.palacio.environment.file.OrganizerApp.organizeZipFiles;
 import com.palacio.environment.file.TiendaTerminales;
 import java.io.File;
 import java.io.IOException;
@@ -42,7 +44,7 @@ public class JerarquizacionApp {
     public static final Set<String> tiendasNivel0 = new HashSet<>(); // Nuevo arreglo para almacenar nombres de tiendas del nivel 0
     public static final Map<String, Set<String>> terminalesPorTienda = new HashMap<>();
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
         loadConfig(); // Cargar configuración desde conCfig.properties
         configureLogger(); // Cargar el LOGGER
 
@@ -152,48 +154,14 @@ public class JerarquizacionApp {
             e.printStackTrace();
         }
 
-        OrganizerApp.organizeZipFiles();
+        String backupDir = RESPALDO_RUTA;
+        createMasterZipsForTerminals(backupDir);
 
-        deleteOriginalZipFiles();
+        //OrganizerApp.organizeZipFiles();
+        //deleteOriginalZipFiles();
     }
 
-    private static void organizeZipFiles() {
-        for (String zipFileName : createdZipFiles) {
-            if (zipFileName.length() >= 3) {
-                logger.log(Level.INFO, "Procesando archivo ZIP: {0}", zipFileName);
-                final String terminalNumber = zipFileName.replaceAll("[^\\d]", "");
-                final String extractedTerminalNumber = terminalNumber.length() >= 3
-                        ? terminalNumber.substring(terminalNumber.length() - 3) : "";
-
-                // Busca la carpeta de la terminal en TODAS las carpetas y niveles
-                try {
-                    Files.walk(Paths.get(RESPALDO_RUTA))
-                            .filter(Files::isDirectory)
-                            .filter(path -> path.getFileName().toString().endsWith(extractedTerminalNumber))
-                            .findFirst()
-                            .ifPresent(terminalPath -> {
-                                // Copia el archivo ZIP a la carpeta de la terminal
-                                copyZipToTerminalFolder(zipFileName, terminalPath.toString());
-                                logger.log(Level.INFO, "Archivo ZIP {0} copiado a la carpeta de la terminal {1}", new Object[]{zipFileName, terminalPath});
-                            });
-                } catch (IOException e) {
-                    logger.log(Level.SEVERE, "Error al organizar el archivo ZIP en la carpeta de la terminal", e);
-                }
-            } else {
-                logger.log(Level.WARNING, "El nombre del archivo ZIP es demasiado corto para extraer el número de terminal: {0}", zipFileName);
-            }
-        }
-    }
-
-    private static void copyZipToTerminalFolder(String zipFileName, String destinationFolderPath) {
-        try {
-            Files.copy(Paths.get(RESPALDO_RUTA, zipFileName), Paths.get(destinationFolderPath, zipFileName), StandardCopyOption.REPLACE_EXISTING);
-        } catch (IOException e) {
-            logger.log(Level.SEVERE, "Error al copiar el archivo ZIP a la carpeta de la terminal", e);
-        }
-    }
-
-    private static void searchAndBackupTxtFiles(File directory, String zipPassword, int limiteMeses) throws IOException {
+    public static void searchAndBackupTxtFiles(File directory, String zipPassword, int limiteMeses) throws IOException {
         // Asegurémonos de que la ruta termine con un separador de directorios
         if (!directory.getPath().endsWith(File.separator)) {
             directory = new File(directory.getPath() + File.separator);
@@ -382,7 +350,7 @@ public class JerarquizacionApp {
         String[] pathSegments = filePath.split("\\\\");
 
         // Verifica si hay al menos tres segmentos en la ruta
-        if (pathSegments.length >= 3) {
+        if (pathSegments.length >= 4) {
             // Agrega loggers informativos
             logger.log(Level.INFO, "Ruta completa: {0}", filePath);
             logger.log(Level.INFO, "Segmentos obtenidos: {0}", Arrays.toString(pathSegments));
