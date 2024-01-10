@@ -2,9 +2,10 @@ package com.palacio.environment.file;
 
 import static com.palacio.environment.config.ConfigLoader.RESPALDO_RUTA;
 import com.palacio.environment.main.JerarquizacionApp;
-import static com.palacio.environment.main.JerarquizacionApp.createdZipFiles;
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.*;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -12,39 +13,47 @@ public class OrganizerApp {
 
     private static final Logger logger = Logger.getLogger(JerarquizacionApp.class.getName());
 
-    public static void organizeZipFiles() {
-        for (String zipFileName : createdZipFiles) {
-            if (zipFileName.length() >= 3) {
-                logger.log(Level.INFO, "ORGANIZER Procesando archivo ZIP: {0}", zipFileName);
-                final String terminalNumber = zipFileName.replaceAll("[^\\d]", "");
-                final String extractedTerminalNumber = terminalNumber.length() >= 3
-                        ? terminalNumber.substring(terminalNumber.length() - 3) : "";
+    public static void organizeZipFiles(String backupDir) {
+        // Obtén la lista de archivos ZIP maestros en el directorio de respaldo
+        File[] masterZipFiles = new File(backupDir).listFiles((dir, name) -> name.toLowerCase().endsWith(".zip") && name.startsWith("Respaldo"));
+
+        if (masterZipFiles != null && masterZipFiles.length > 0) {
+            for (File masterZipFile : masterZipFiles) {
+                // Extrae el número de la terminal del nombre del ZIP maestro
+                String terminalNumber = extractTerminalNumberFromMasterZip(masterZipFile.getName());
 
                 // Busca la carpeta de la terminal en TODAS las carpetas y niveles
                 try {
-                    Files.walk(Paths.get(RESPALDO_RUTA))
+                    Files.walk(Paths.get(backupDir))
                             .filter(Files::isDirectory)
-                            .filter(path -> path.getFileName().toString().endsWith(extractedTerminalNumber))
+                            .filter(path -> path.getFileName().toString().endsWith(terminalNumber))
                             .forEach(terminalPath -> {
-                                // Copia el archivo ZIP a la carpeta de la terminal
-                                copyZipToTerminalFolder(zipFileName, terminalPath.toString());
-                                logger.log(Level.INFO, "ORGANIZER Archivo ZIP {0} copiado a la carpeta de la terminal {1}", new Object[]{zipFileName, terminalPath});
+                                // Copia el archivo ZIP maestro a la carpeta de la terminal
+                                copyZipToTerminalFolder(masterZipFile, terminalPath.toString());
+                                logger.log(Level.INFO, "ORGANIZER Archivo ZIP maestro {0} copiado a la carpeta de la terminal {1}", new Object[]{masterZipFile.getName(), terminalPath});
                             });
                 } catch (IOException e) {
-                    logger.log(Level.SEVERE, "ORGANIZER Error al organizar el archivo ZIP en la carpeta de la terminal", e);
+                    logger.log(Level.SEVERE, "ORGANIZER Error al organizar el archivo ZIP maestro en la carpeta de la terminal", e);
                 }
-            } else {
-                logger.log(Level.WARNING, "ORGANIZER El nombre del archivo ZIP es demasiado corto para extraer el número de terminal: {0}", zipFileName);
             }
+        } else {
+            logger.log(Level.WARNING, "ORGANIZER No se encontraron archivos ZIP maestros en el directorio de respaldo: {0}", backupDir);
         }
     }
 
-    public static void copyZipToTerminalFolder(String zipFileName, String destinationFolderPath) {
+    public static String extractTerminalNumberFromMasterZip(String masterZipFileName) {
+        // Implementa la lógica para extraer el número de la terminal del nombre del ZIP maestro
+        // Puedes usar expresiones regulares u otras técnicas según el formato del nombre
+        // En este ejemplo, se asume que el número de terminal está al final del nombre antes de la extensión .zip
+        String extractedTerminalNumber = masterZipFileName.replaceAll("[^\\d]", "");
+        return extractedTerminalNumber.length() >= 3 ? extractedTerminalNumber.substring(extractedTerminalNumber.length() - 3) : "";
+    }
+
+    public static void copyZipToTerminalFolder(File masterZipFile, String destinationFolderPath) {
         try {
-            Files.copy(Paths.get(RESPALDO_RUTA, zipFileName), Paths.get(destinationFolderPath, zipFileName),
-                    StandardCopyOption.REPLACE_EXISTING);
+            Files.copy(masterZipFile.toPath(), Paths.get(destinationFolderPath, masterZipFile.getName()), StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
-            logger.log(Level.SEVERE, "ORGANIZER Error al copiar el archivo ZIP a la carpeta de la terminal", e);
+            logger.log(Level.SEVERE, "ORGANIZER Error al copiar el archivo ZIP maestro a la carpeta de la terminal", e);
         }
     }
 

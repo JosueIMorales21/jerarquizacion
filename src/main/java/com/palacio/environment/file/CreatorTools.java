@@ -80,12 +80,12 @@ public class CreatorTools {
     private static void createFolderIfNotExists(File folder) {
         if (!folder.exists()) {
             if (folder.mkdirs()) {
-                logger.info("Creada carpeta: " + folder.getAbsolutePath());
+                logger.info("CREATOR TOOLS Creada carpeta: " + folder.getAbsolutePath());
             } else {
-                logger.warning("No se pudo crear la carpeta: " + folder.getAbsolutePath());
+                logger.warning("CREATOR TOOLS No se pudo crear la carpeta: " + folder.getAbsolutePath());
             }
         } else {
-            logger.warning("La carpeta ya existe: " + folder.getAbsolutePath());
+            //logger.warning("La carpeta ya existe: " + folder.getAbsolutePath());
         }
     }
 

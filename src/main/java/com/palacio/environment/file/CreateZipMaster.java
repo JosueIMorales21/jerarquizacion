@@ -8,8 +8,10 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import net.lingala.zip4j.exception.ZipException;
@@ -51,12 +53,10 @@ public class CreateZipMaster {
 
             // Itera sobre los grupos y crea un ZIP maestro para cada uno
             for (Map.Entry<String, List<File>> entry : zipGroups.entrySet()) {
-                String terminalKey = entry.getKey();
-                List<File> filesInGroup = entry.getValue();
-
-                // Construye el nombre del archivo maestro con las últimas tres cifras comunes
+                // Construye el nombre del archivo maestro con la terminación común
                 String currentDate = new SimpleDateFormat("yyyyMMdd").format(new Date());
-                String masterZipFileName = "Respaldo_" + currentDate + "_" + terminalKey + ".zip";
+                String terminalName = entry.getKey();
+                String masterZipFileName = "Respaldo_" + currentDate + "_" + terminalName + ".zip";
                 String masterZipFilePath = Paths.get(backupDir, masterZipFileName).toString();
 
                 // Crea o abre el archivo ZIP maestro correspondiente
@@ -65,13 +65,24 @@ public class CreateZipMaster {
                 parameters.setCompressionMethod(CompressionMethod.DEFLATE);
                 parameters.setCompressionLevel(CompressionLevel.NORMAL);
 
+                // Lista para mantener un registro de los archivos que se han agregado al ZIP maestro
+                Set<String> addedFiles = new HashSet<>();
+
                 // Agrega todos los archivos en el grupo al ZIP maestro
-                for (File file : filesInGroup) {
+                for (File file : entry.getValue()) {
                     try {
-                        masterZipFile.addFile(file, parameters);
-                        // Elimina el archivo ZIP individual (opcional)
-                        // Files.delete(file.toPath());
-                        logger.log(Level.INFO, "Agregado archivo ZIP al ZIP maestro: {0}", file.getAbsolutePath());
+                        // Verifica si el archivo ya fue agregado al ZIP maestro
+                        if (!addedFiles.contains(file.getName())) {
+                            masterZipFile.addFile(file, parameters);
+                            // Elimina el archivo original
+                            if (file.delete()) {
+                                logger.log(Level.INFO, "Archivo original eliminado: {0}", file.getAbsolutePath());
+                            } else {
+                                logger.log(Level.WARNING, "No se pudo eliminar el archivo original: {0}", file.getAbsolutePath());
+                            }
+                            addedFiles.add(file.getName());
+                            logger.log(Level.INFO, "Agregado archivo ZIP al ZIP maestro: {0}", file.getAbsolutePath());
+                        }
                     } catch (net.lingala.zip4j.exception.ZipException e) {
                         // Manejo de excepciones al agregar archivos al ZIP maestro
                         String errorMessage = "Error al agregar archivo al ZIP maestro: " + e.getMessage();
@@ -82,7 +93,7 @@ public class CreateZipMaster {
                 }
 
                 // Agrega mensaje de log indicando que el ZIP maestro se generó exitosamente para la terminal
-                logger.log(Level.INFO, "ZIP maestro de la fecha {0} para la terminal {1} generado exitosamente.", new Object[]{currentDate, terminalKey});
+                logger.log(Level.INFO, "ZIP maestro de la fecha {0} para la terminal {1} generado exitosamente.", new Object[]{currentDate, terminalName});
             }
         } else {
             logger.log(Level.WARNING, "No se encontraron archivos ZIP en el directorio de respaldo: {0}", backupDir);

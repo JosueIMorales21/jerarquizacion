@@ -7,12 +7,10 @@ import static com.palacio.environment.config.ConfigLoader.RESPALDO_RUTA;
 import static com.palacio.environment.config.ConfigLoader.ZIP_PASSWORD;
 import static com.palacio.environment.config.ConfigLoader.configureLogger;
 import static com.palacio.environment.config.ConfigLoader.loadConfig;
-import com.palacio.environment.file.CreateZipMaster;
 import static com.palacio.environment.file.CreateZipMaster.createMasterZipsForTerminals;
 import static com.palacio.environment.file.CreatorTools.createTiendasAndTerminalesFolders;
 import static com.palacio.environment.file.CreatorTools.populateTiendasNivel0AndTerminales;
-import static com.palacio.environment.file.OrganizerApp.copyZipToTerminalFolder;
-import static com.palacio.environment.file.OrganizerApp.organizeZipFiles;
+import com.palacio.environment.file.OrganizerApp;
 import com.palacio.environment.file.TiendaTerminales;
 import java.io.File;
 import java.io.IOException;
@@ -67,7 +65,7 @@ public class JerarquizacionApp {
             List<String> tiendasNivel0ConInfo = tiendasNivel0.stream()
                     .filter(terminalesPorTienda::containsKey)
                     .collect(Collectors.toList());
-            logger.info("Tiendas del Nivel 0: " + tiendasNivel0ConInfo);
+            logger.info("Tiendas encontradas: " + tiendasNivel0ConInfo);
 
             // Muestra las terminales asociadas a cada tienda
             for (String tienda : tiendasNivel0ConInfo) {
@@ -82,7 +80,6 @@ public class JerarquizacionApp {
                 Set<String> terminales = terminalesPorTienda.get(tienda);
                 if (terminales != null) {
                     for (String terminal : terminales) {
-                        organizeZipFiles(); // Llama a la función para organizar los archivos ZIP
 
                         // Construye la ruta de origen y destino
                         String extractedTerminalNumber = terminal.length() >= 3 ? terminal.substring(terminal.length() - 3) : "";
@@ -106,7 +103,7 @@ public class JerarquizacionApp {
                                     });
 
                         } catch (IOException e) {
-                            logger.log(Level.SEVERE, "Error al organizar archivos ZIP en la carpeta de la terminal", e);
+                            //logger.log(Level.SEVERE, "Error al organizar archivos ZIP en la carpeta de la terminal", e);
                         }
                     }
                 }
@@ -140,10 +137,8 @@ public class JerarquizacionApp {
                         // Obtén la ruta de la terminal correspondiente
                         String terminalPath = Paths.get(RESPALDO_RUTA, terminalFolder, extractedTerminalNumber).toString();
 
-                        // Copia el archivo ZIP a la carpeta de la terminal
-                        copyZipToTerminalFolder(zipFileName, terminalPath);
                     } else {
-                        logger.log(Level.WARNING, "No se encontró una carpeta asociada a la terminal del archivo ZIP {0}", zipFileName);
+                        //logger.log(Level.WARNING, "No se encontró una carpeta asociada a la terminal del archivo ZIP {0}", zipFileName);
                     }
                 } else {
                     logger.log(Level.WARNING, "El nombre del archivo ZIP es demasiado corto para extraer el número de terminal: {0}", zipFileName);
@@ -157,8 +152,9 @@ public class JerarquizacionApp {
         String backupDir = RESPALDO_RUTA;
         createMasterZipsForTerminals(backupDir);
 
-        //OrganizerApp.organizeZipFiles();
-        //deleteOriginalZipFiles();
+        OrganizerApp.organizeZipFiles(backupDir);
+        
+        OrganizerApp.deleteOriginalZipFiles();
     }
 
     public static void searchAndBackupTxtFiles(File directory, String zipPassword, int limiteMeses) throws IOException {
